@@ -17,12 +17,14 @@ app.use(cors());
 app.use(express.json());
 app.use(bodyParser.json());
 
-// MongoDB connection
+// MongoDB connection with increased timeout
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 30000, // 30 seconds
+      socketTimeoutMS: 45000, // 45 seconds
     });
     console.log('MongoDB connected successfully');
   } catch (err) {
@@ -31,7 +33,6 @@ const connectDB = async () => {
   }
 };
 connectDB();
-
 
 // Define schema and model for users
 const userSchema = new mongoose.Schema({
@@ -81,7 +82,6 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-
 // Twilio client for OTP generation
 const twilioClient = new Twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
@@ -100,7 +100,7 @@ app.post('/api/send-otp', async (req, res) => {
   } catch (error) {
     res.status(500).send({ message: 'Failed to send OTP', error });
   }
-});  
+});
 
 // Define schema and model for reviews
 const reviewSchema = new mongoose.Schema({
@@ -165,6 +165,7 @@ app.post('/api/amenities', (req, res) => {
   const amenities = [`'amenties',${Booking.location}`]; // Example amenities
   res.json({ amenities });
 });
+
 // Define schema and model for booking confirmation
 const bookingConfirmationSchema = new mongoose.Schema({
   userName: String,
@@ -196,6 +197,7 @@ app.post('/api/bookings/confirmation', async (req, res) => {
     res.status(500).json({ message: 'Failed to save booking confirmation' });
   }
 });
+
 // Endpoint to get booking details
 app.get('/api/bookings/details', async (req, res) => {
   try {
@@ -206,6 +208,7 @@ app.get('/api/bookings/details', async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch booking details' });
   }
 });
+
 // Define schema and model for payment receipt
 const paymentReceiptSchema = new mongoose.Schema({
   username: String,
@@ -217,8 +220,6 @@ const paymentReceiptSchema = new mongoose.Schema({
 });
 
 const PaymentReceipt = mongoose.model('PaymentReceipt', paymentReceiptSchema);
-
-
 
 // Define the POST route to handle payment receipt submissions
 app.post('/api/bookings', async (req, res) => {
@@ -241,60 +242,38 @@ app.post('/api/bookings', async (req, res) => {
     res.status(500).json({ message: 'Failed to save payment receipt' });
   }
 });
+
+// Define schema and model for logs
 const logSchema = new mongoose.Schema({
   userId: String,
   username: String,
   action: String,
   timestamp: Date,
-  bookingDetails: String
+  bookingDetails: String,
 });
 
-const Log = mongoose.model('Log', logSchema); 
- async function getBookingLogs(userId) {
-  try {
-      const logs = await Log.find({
-          $or: [
-              { action: 'login' },
-              { action: 'booking_confirmation' }
-          ],
-          userId: userId
-      }).sort({ timestamp: -1 });
+const Log = mongoose.model('Log', logSchema);
 
-      console.log('Booking Logs:', logs);
-      return logs;
+// Function to get booking logs
+async function getBookingLogs(userId) {
+  try {
+    const logs = await Log.find({
+      $or: [{ action: 'login' }, { action: 'booking_confirmation' }],
+      userId: userId,
+    }).sort({ timestamp: -1 });
+
+    console.log('Booking Logs:', logs);
+    return logs;
   } catch (error) {
-      console.error('Error fetching logs:', error);
+    console.error('Error fetching logs:', error);
   }
 }
 
 // Example usage:
 getBookingLogs('specific_user_id');
+
+// Endpoint to get booking logs
 app.get('/logs/:userId', async (req, res) => {
   const userId = req.params.userId;
   try {
-      const logs = await Log.find({
-          $or: [
-              { action: 'login' },
-              { action: 'booking_confirmation' }
-          ],
-          userId: userId
-      }).sort({ timestamp: -1 });
-      res.json(logs);
-  } catch (error) {
-      res.status(500).send(error);
-  }
-});
-
-
-
-
-
-
-
-
-
-
-
-app.listen(port, () => {
-  console.log(`App is running at http://localhsot:${port}`);
-});
+    const logs =
