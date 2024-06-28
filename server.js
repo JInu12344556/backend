@@ -243,50 +243,51 @@ app.post('/api/bookings', async (req, res) => {
   }
 });
 
+
+// Define schema and model for logs
 const logSchema = new mongoose.Schema({
   userId: String,
   username: String,
   action: String,
-  timestamp: Date,
-  bookingDetails: String
+  timestamp: { type: Date, default: Date.now },
+  bookingDetails: String,
 });
 
 const Log = mongoose.model('Log', logSchema);
 
-async function getBookingLogs(userId) {
-  try {
-    const logs = await Log.find({
-      $or: [
-        { action: 'login' },
-        { action: 'booking_confirmation' }
-      ],
-      userId: userId
-    }).sort({ timestamp: -1 });
+async function getBookingLogs(userId, retries = 3, delay = 5000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const logs = await Log.find({
+        $or: [
+          { action: 'login' },
+          { action: 'booking_confirmation' },
+        ],
+        userId: userId,
+      }).sort({ timestamp: -1 });
 
-    console.log('Booking Logs:', logs);
-    return logs;
-  } catch (error) {
-    console.error('Error fetching logs:', error);
+      console.log('Booking Logs:', logs);
+      return logs;
+    } catch (error) {
+      console.error(`Error fetching logs (attempt ${i + 1}):`, error);
+      if (i < retries - 1) {
+        console.log(`Retrying in ${delay / 1000} seconds...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw new Error('Failed to fetch logs after multiple attempts');
+      }
+    }
   }
 }
-
-// Example usage:
-getBookingLogs('specific_user_id');
 
 app.get('/logs/:userId', async (req, res) => {
   const userId = req.params.userId;
   try {
-    const logs = await Log.find({
-      $or: [
-        { action: 'login' },
-        { action: 'booking_confirmation' }
-      ],
-      userId: userId
-    }).sort({ timestamp: -1 });
+    const logs = await getBookingLogs(userId);
     res.json(logs);
   } catch (error) {
     console.error('Error fetching logs:', error);
-    res.status(500).send(error);
+    res.status(500).send({ message: 'Failed to fetch logs', error });
   }
 });
 
