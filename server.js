@@ -1,6 +1,6 @@
 import express from 'express';
 import mongoose from 'mongoose';
-import bodyParser from 'body-parser';
+
 import cors from 'cors';
 import dotenv from 'dotenv';
 import otpGenerator from 'otp-generator';
@@ -15,7 +15,7 @@ const port = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
-app.use(bodyParser.json());
+
 
 // MongoDB connection
 const connectDB = async () => {
