@@ -17,14 +17,14 @@ app.use(cors());
 app.use(express.json());
 app.use(bodyParser.json());
 
-// MongoDB connection with increased timeout
+// MongoDB connection
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 30000, // 30 seconds
-      socketTimeoutMS: 45000, // 45 seconds
+      serverSelectionTimeoutMS: 30000, // Increase timeout to 30 seconds
+      socketTimeoutMS: 45000, // Increase socket timeout to 45 seconds
     });
     console.log('MongoDB connected successfully');
   } catch (err) {
@@ -243,23 +243,24 @@ app.post('/api/bookings', async (req, res) => {
   }
 });
 
-// Define schema and model for logs
 const logSchema = new mongoose.Schema({
   userId: String,
   username: String,
   action: String,
   timestamp: Date,
-  bookingDetails: String,
+  bookingDetails: String
 });
 
 const Log = mongoose.model('Log', logSchema);
 
-// Function to get booking logs
 async function getBookingLogs(userId) {
   try {
     const logs = await Log.find({
-      $or: [{ action: 'login' }, { action: 'booking_confirmation' }],
-      userId: userId,
+      $or: [
+        { action: 'login' },
+        { action: 'booking_confirmation' }
+      ],
+      userId: userId
     }).sort({ timestamp: -1 });
 
     console.log('Booking Logs:', logs);
@@ -272,8 +273,23 @@ async function getBookingLogs(userId) {
 // Example usage:
 getBookingLogs('specific_user_id');
 
-// Endpoint to get booking logs
 app.get('/logs/:userId', async (req, res) => {
   const userId = req.params.userId;
   try {
-    const logs =
+    const logs = await Log.find({
+      $or: [
+        { action: 'login' },
+        { action: 'booking_confirmation' }
+      ],
+      userId: userId
+    }).sort({ timestamp: -1 });
+    res.json(logs);
+  } catch (error) {
+    console.error('Error fetching logs:', error);
+    res.status(500).send(error);
+  }
+});
+
+app.listen(port, () => {
+  console.log(`App is running at http://localhost:${port}`);
+});
